@@ -1,0 +1,130 @@
+---
+title: "Motor Trend - A study of factors impacting MPG"
+author: "Asif M Adnan"
+date: "September 4, 2016"
+output: word_document
+---
+
+#Executive Summary
+In this article we will study "mtcars" data set and find miles per galon (MPG) dependency based on some other parameters. The given data set has ```r dim(mtcars)[1]``` samples, and each of the samples have the follwing attributes, ```r names(mtcars)```. 
+The purpose of this article will be focused around, 
+
+* Is an automatic or manual transmission better for MPG?
+* Quantify the MPG difference between automatic and manual transmissions?
+
+In order to generate our report, we will go through the following steps one by one,
+
+* Process and Explore target data set.
+* Select a good model that can explain the relationship of MPG with the other factors, compared to some counterpart models (Selection and Comparison).
+* Conclusion.
+
+#Data Process and Explore
+##Process
+For this analysis, we need to load the following libraries,
+```{r}
+library(ggplot2)
+library(knitr)
+```
+Before exploring and analyzing the data set, we need to load and process mtcars. Dimesion of the data set, ```r dim(mtcars)```. Attributes of the samples, ```r names(mtcars)```.
+```{r, echo=FALSE}
+data("mtcars")
+```
+Some samples
+```{r}
+rbind(head(mtcars,3),tail(mtcars,3))
+```
+There are some attributes, which were used as factors (cyl, am, etc.). We need to convert the raw dataset into a format which will help us analyzing the data (code not shown for space).
+```{r, cache=TRUE}
+mtcarsModified <- mtcars
+```
+```{r,cache=TRUE, echo=FALSE}
+mtcarsModified$am <- as.factor(mtcarsModified$am)
+levels(mtcarsModified$am) <- c("automatic", "manual")
+mtcarsModified$cyl <- as.factor(mtcarsModified$cyl)
+mtcarsModified$gear <- as.factor(mtcarsModified$gear)
+mtcarsModified$vs <- as.factor(mtcarsModified$vs)
+levels(mtcarsModified$vs) <- c("V","S")
+```
+
+##Explore
+If we draw a box of the data based on the two variables we are interested (MPG vs Transmission), we'll get the following diagram,
+```{r, fig.height=3, fig.width=8}
+mgpVStransmission <- ggplot(mtcarsModified, aes(am, mpg))+
+                    geom_boxplot(aes(fill = am))+
+                    labs(title = "MPG vs Transmission - Box Plot")
+
+mgpVStransmission
+```
+The above graph is showing that, MPG for automatic and manual transmissions are significantly different. We can verify that from the following t-test. 
+```{r}
+mpgVStransmissionTest <- t.test(mtcarsModified$mpg~mtcarsModified$am)
+mpgVStransmissionTest$p.value
+mpgVStransmissionTest$estimate
+```
+The p-value is siggesting that, automatic and manual transmission data are from two different populations. And the estimated means are quite similar to the box plot we drew.Even though these test suggest that automatic and manusal transmission cars have significantly different MPGs, in order to make sure that there are no biases in the data, we need to farther investigate. 
+
+
+#Model Selection
+We will use linear model to predict the outcome of MPG. At first, we will use only 'am' as the predictor. For the second model, we will use all the other variables. As for selecting the best model, we wil use R's step() function to decide the best model based on the model having all the variables.
+
+##Basic model having 'am' as the predictor - AM Model
+We will use 'am' attribute as the predictor to decide MPG outcome.
+```{r}
+fitAM <- lm(mpg~am, data = mtcarsModified)
+#summary(fitAM)
+```
+
+According to this very basic model, an automatic transmission vehicle has on an average ```r summary(fitAM)$coef[1]``` MPG, where as, a manual tranmission vehicle has MPG increased by ```r summary(fitAM)$coef[2]```. This model has Residual standard error as ```r sqrt(sum(resid(fitAM)^2)/fitAM$df.residual)``` on ```r fitAM$df.residual```, and the adjusted R-Squared value is ```.3385```. R-squared value indicates that, this model can explain only approximately ```33%``` of the MPG variance.
+
+##All the attributes as the predictor - All Inclusion Model
+In this model, we will use all the available attributes as the predictor.
+```{r}
+fitAll <- lm(mpg~., data = mtcarsModified)
+#summary(fitAll)
+```
+
+According to this all inclusive model, an automatic transmission vehicle has on an average ```r summary(fitAll)$coef[1]``` MPG, where as, a manual tranmission vehicle has MPG increased by ```r summary(fitAll)$coef[10]```. This model has Residual standard error as ```r sqrt(sum(resid(fitAll)^2)/fitAll$df.residual)``` on ```r fitAll$df.residual```, and the adjusted R-Squared value is ```.8116```. R-squared value indicates that, this model can explain approximately ```81%``` of the MPG variance, which is better than the 'am' model. Beside these, none of the coefficients are significant at 0.05 level.
+
+##Automatic selection of a better model - Auto Select Model
+We will use R's step() function in order to select a comparatively good fit.
+
+```{r}
+fitBetter <- step(fitAll, direction = "both", trace = FALSE)
+#summary(fitBetter)
+```
+
+According to this automatically selected, better model, an automatic transmission vehicle has on an average ```r summary(fitBetter)$coef[1]``` MPG, where as, a manual tranmission vehicle has MPG increased by ```r summary(fitBetter)$coef[4]```. This model has Residual standard error as ```r sqrt(sum(resid(fitBetter)^2)/fitBetter$df.residual)``` on ```r fitBetter$df.residual```, and the adjusted R-Squared value is ```.8336```. R-squared value indicates that, this model can explain approximately ```83%``` of the MPG variance, which is better than the all inclusive model.
+
+##Selecting an even better model - Best Model
+We will use the attributes selected by the previous model, and multiply 'wt' and 'am' as another predictor.
+```{r}
+fitBest <- lm(mpg~wt + qsec + am + wt*am, data = mtcarsModified)
+summary(fitBest)
+```
+
+According to this automatically selected, better model, an automatic transmission vehicle has on an average ```r summary(fitBest)$coef[1]``` MPG, where as, a manual tranmission vehicle has MPG increased by ```r summary(fitBest)$coef[4]```. This model has Residual standard error as ```r sqrt(sum(resid(fitBest)^2)/fitBest$df.residual)``` on ```r fitBest$df.residual```, and the adjusted R-Squared value is ```.8804```. R-squared value indicates that, this model can explain approximately ```88%``` of the MPG variance, which is better than the previous one.
+
+##Comparison
+Because of space, we did not print all the summaries, except the finally selected best one. The following table is displaying all the necessary attributes compared for the four model we discussed.
+
+```{r, echo=FALSE}
+rows <- c("Avg Automatic MPG", "Increase in Manual Avg MPG", "Residual Standard Error", "Degrees of Freedom", "Adjusted R-squared", "Precentage Explained")
+AM_Model <- round(c(summary(fitAM)$coef[1], summary(fitAM)$coef[2], sqrt(sum(resid(fitAM)^2)/fitAM$df.residual), fitAM$df.residual,0.33, 33),2)
+All_Inclusion_Model <- round(c(summary(fitAll)$coef[1], summary(fitAll)$coef[10], sqrt(sum(resid(fitAll)^2)/fitAll$df.residual), fitAll$df.residual,0.81, 81),2)
+Auto_Select_Model <- round(c(summary(fitBetter)$coef[1], summary(fitBetter)$coef[4], sqrt(sum(resid(fitBetter)^2)/fitBetter$df.residual), fitBetter$df.residual,0.83, 83),2)
+Best_Model <- round(c(summary(fitBest)$coef[1], summary(fitBest)$coef[4], sqrt(sum(resid(fitBest)^2)/fitBest$df.residual), fitBest$df.residual,0.88, 88),2)
+
+kable(cbind(rows,AM_Model,All_Inclusion_Model, Auto_Select_Model,Best_Model))
+```
+
+We will plot the best selected model in the following diagram.
+```{r, fig.width=10, fig.height=8}
+par(mfrow = c(2,2))
+plot(fitBest)
+```
+According to the plot, there is consistent pattern observed (based on Fitted vs Residual plot). The residuals are normally distributed. The scale-location is showing that, points are randomly distributed. Also, there was no observable outlier shown in the Residue-Leverage plot.
+
+#Conclusion
+We started our analysis with two questions in mind. The firs one is, "Is an automatic or manual transmission better for MPG?". Based on the models that we have discussed, it is quite obvious and easy to answer that, a manual transmission is better than an automatic one for MPG. Obviously, there are some certain chances that for a sample not present in this data set, an automatic transmission vahicle might have better MPG values. But with the given set of data, our best model can explain ```88%``` of the variances.
+
+The secnond question in our list is, "Quantify the MPG difference between automatic and manual transmissions". This is not as straightforwad as the firs one is. If we look the comparison table given in the previous section, for different model, the difference in MPG values for manual vs automatic vehicles varies from model to model. The very basic 'am' model has a difference of ```7.24``` with low confidence, where as the best model has ```14.08``` differnce with high confidence. We also have another model (automatically selected one) which shows a differnce of ```2.94``` but with high confidence. If we analyze the Residual vs Fitted plots of the models (except for the basic 'am' one), we can see some randomness in the given data. These models also has large confidence values. But with only 32 samples, it is not very wise to generalize the notion that, a manual vehicle will always have migher MPG values comparing to the automatic counterparts.
